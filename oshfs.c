@@ -750,68 +750,6 @@ static int ramdisk_rmdir(const char *path)
 		return -ENOENT;
 }
 
-/*
-static int ramdisk_create(const char *path, mode_t mode,
-		struct fuse_file_info *fi) {
-
-
-
-	Node *node = findPathNode(path);
-
-	Node *temp;
-
-	temp = (Node *) malloc(sizeof(Node));
-
-	#ifdef DEBUG
-		printf("\n\n node is %ld \n\n",temp);
-	#endif
-
-	if (temp == NULL) {
-		return -ENOSPC;
-	}
-
-	strcpy(temp->name, newFile);
-
-	temp->type = 'f';
-
-	temp->parent = node;
-
-
-	temp->next = NULL;
-	temp->child = NULL;
-
-	temp->st.st_uid = getuid();
-	temp->st.st_mode = S_IFREG | mode;
-	temp->st.st_gid = getgid();
-
-	temp->st.st_nlink = 1;
-	temp->st.st_atime = time(NULL);
-	temp->st.st_mtime = time(NULL);
-	temp->st.st_ctime = time(NULL);
-
-	temp->st.st_size = 0;
-	//temp->contents = NULL;
-
-	Node *childNode;
-	childNode = node->child;
-	if (childNode != NULL) {
-
-		while (childNode->next != NULL) {
-			childNode = childNode->next;
-		}
-
-		childNode->next = temp;
-
-	} else {
-
-		node->child = temp;
-	}
-
-	return 0;
-
-}
-*/
-
 static int ramdisk_create(const char *path, mode_t mode,
 		struct fuse_file_info *fi)
 {
@@ -934,22 +872,6 @@ void ramdisk_init() {
 	root->st.st_ctime = time(NULL);
 }
 
-/*s
-static struct fuse_operations ramdisk_oper = {
-		.getattr = ramdisk_getattr,
-		.readdir = ramdisk_readdir,
-		//.open = ramdisk_open,
-		//.opendir = ramdisk_opendir,
-		//.read = ramdisk_read,
-		//.write = ramdisk_write,
-		.mkdir = ramdisk_mkdir,
-		.rmdir = ramdisk_rmdir,
-		.create = ramdisk_create,
-		//.truncate = ramdisk_truncate,
-		//.unlink = ramdisk_unlink,
-		.utimens = ramdisk_utimens,
-		};
-*/
 
 static struct fuse_operations ramdisk_oper = {
 				.getattr = ramdisk_getattr,
@@ -972,24 +894,3 @@ int main(int argc, char *argv[])
 	fuse_main(argc, argv, &ramdisk_oper, NULL);
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//针对文件内容
-//void *Realloc(void *p, size_t n)
-//针对Node和文件内容
-//void Free(void *p)
-//全部针对文件内容，用block实现
-//void *Memcpy(void *des, const void *src, size_t n)//返回指向dst的指针
