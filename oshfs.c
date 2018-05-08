@@ -25,7 +25,7 @@ block安排
 #define BLOCK_NUM_FOR_DATA (BLOCK_NUM - BLOCK_NUM_FOR_NODE -1)
 #define CONTENT_SIZE_PER_BLOCK (BLOCK_SIZE-3*sizeof(int))
 #define PATH_SIZE 4096
-#define MAX_READ_NUM (1024*1024) //栈会爆炸
+//#define MAX_READ_NUM (1024*1024) //栈会爆炸,每个文件最大的大小
 
 #define DEBUG 1
 /*
@@ -255,6 +255,7 @@ void read_data(Node *p,char *buf)
 		curr_b=(Data_block *)mem[curr];
 		memcpy(((void*)buf)+offset,curr_b->content,CONTENT_SIZE_PER_BLOCK);
 		curr=curr_b->next_block;
+		offset+=CONTENT_SIZE_PER_BLOCK;
 	}
 	curr_b=(Data_block *)mem[curr];
 	memcpy(((void *)buf)+offset,curr_b->content,curr_b->size);
@@ -286,8 +287,10 @@ int realloc_data(Node *p,const char *buf,int size,int offset)
 printf("\n\n realloc data\n");
 #endif
 
-	char read[MAX_READ_NUM];
-	char write[MAX_READ_NUM];
+	//char read[MAX_READ_NUM];
+	//char write[MAX_READ_NUM];
+	char *read=(char *)malloc(p->st.st_size+10);
+	char *write=(char *)malloc(p->st.st_size+size+10);
 	read_data(p,read);
 #ifdef DEBUG
 printf("realloc_data : read_data\n" );
@@ -315,6 +318,8 @@ printf("realloc_data : memcpy 2\n");
 #endif
 	return malloc_data(p, write, offset+size);
 
+	free(read);
+	free(write);
 }
 
 
@@ -449,10 +454,12 @@ static int ramdisk_read(const char *path, char *buf, size_t size, off_t offset,
 		{
 			size = fileSize - offset;
 		}
-		char read[MAX_READ_NUM];
+		//char read[MAX_READ_NUM];
+		char *read=(char *)malloc(node->st.st_size+10);
 		read_data(node,read);
 		memcpy(buf,&read[offset],size);
 		//memcpy(buf, node->contents + offset, size);
+		free(read);
 	}
 	if (size > 0)
 	{
