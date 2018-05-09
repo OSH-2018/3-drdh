@@ -19,7 +19,7 @@ block安排
 */
 //4k page_size
 #define BLOCK_SIZE (4*1024)
-#define BLOCK_NUM (16*1024)
+#define BLOCK_NUM (1024*1024)
 #define NODE_NUM_PER_BLOCK 9
 #define BLOCK_NUM_FOR_NODE 64
 #define BLOCK_NUM_FOR_DATA (BLOCK_NUM - BLOCK_NUM_FOR_NODE -1)
@@ -261,6 +261,7 @@ void read_data(Node *p,char *buf)
 	memcpy(((void *)buf)+offset,curr_b->content,curr_b->size);
 }
 
+
 void free_data(Node *p)
 {
 	int first=p->first_data;
@@ -280,6 +281,163 @@ void free_data(Node *p)
 	super->data_num--;
 }
 
+
+void free_data_re(int first,int last)
+{
+	//int first=p->first_data;
+	//int last=p->last_data;
+	//p->first_data=0;
+	//p->last_data=0;
+	while(first!=last)
+	{
+		int next=((Data_block *)mem[first])->next_block;
+		munmap(mem[first], BLOCK_SIZE);
+		mem[first]=NULL;
+		super->data_num--;
+		first=next;
+	}
+	munmap(mem[first], BLOCK_SIZE);
+	mem[first]=NULL;
+	super->data_num--;
+}
+
+int malloc_data_re(int *first_data,int *last_data, const char *buf, int size)
+{
+#ifdef DEBUG
+		printf("\n\n malloc_data_re size: %d \n",size);
+		//printf(" malloc_data buf : %s",buf);
+#endif
+	if(size/CONTENT_SIZE_PER_BLOCK+1 > BLOCK_NUM_FOR_DATA)
+		return 0;
+
+	int first=1;
+	int prev=0;
+	int i=BLOCK_NUM_FOR_NODE+1;
+	Data_block *prev_b;
+	Data_block *curr_b;
+	int offset=0;
+
+	for(; size>0; size=size - CONTENT_SIZE_PER_BLOCK, offset+=CONTENT_SIZE_PER_BLOCK)
+	{
+		while(mem[i]!=NULL)
+			i++;
+
+#ifdef DEBUG
+				printf("\n\nmalloc_data_re i: %d \n\n",i);
+#endif
+
+		mem[i]=mmap(NULL, BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+#ifdef DEBUG
+						printf("\n\nmalloc_data_re mem[i]: %ld \n\n",mem[i]);
+#endif
+
+		super->data_num++;
+		curr_b=(Data_block *)mem[i];
+		if(first)
+		{
+			first=0;
+			*first_data=i;
+
+			curr_b->prev_block=0;
+			prev=i;
+			prev_b=curr_b;
+		}
+		else
+		{
+			prev_b->next_block=i;
+			curr_b->prev_block=prev;
+			prev=i;
+			prev_b=curr_b;
+		}
+
+		if(size>=CONTENT_SIZE_PER_BLOCK)
+		{
+			curr_b->size=CONTENT_SIZE_PER_BLOCK;
+			memcpy(curr_b->content,((void *)buf)+offset,CONTENT_SIZE_PER_BLOCK);
+		}
+		else
+		{
+			curr_b->size=size;
+			memcpy(curr_b->content,((void *)buf)+offset,size);
+		}
+
+	}
+	curr_b->next_block=0;
+	*last_data=i;
+	return 1;
+}
+
+int realloc_data_re(Node *p,const char *buf,int size,int offset)
+{
+	#ifdef DEBUG
+	printf("\n\nrealloc_data_re \n");
+	#endif
+	if(offset > p->st.st_size)
+		return 0;
+
+	int valid_num=offset/CONTENT_SIZE_PER_BLOCK;
+	int last_left=offset%CONTENT_SIZE_PER_BLOCK;
+	if(last_left)
+		valid_num++;
+	else
+	{
+		if(!offset)
+			last_left=0;
+		else
+			last_left=CONTENT_SIZE_PER_BLOCK;
+	}
+
+	int i;
+	int cur;
+	for(i=0,cur=p->first_data;i<valid_num-1;i++)
+		cur=((Data_block *)mem[cur])->next_block;
+
+	if(cur!=p->last_data)
+	{
+#ifdef DEBUG
+printf("realloc_data_re : free_data_re\n");
+#endif
+
+		int next=((Data_block *)mem[cur])->next_block;
+		free_data_re(next,p->last_data);
+	}
+
+	int ret;
+	int first_data,last_data;
+	Data_block *cur_b;
+	cur_b=(Data_block *)mem[cur];
+
+	if(size<=CONTENT_SIZE_PER_BLOCK - last_left)
+	{
+
+	memcpy((void *)cur_b->content+last_left,buf,size);
+		cur_b->size=last_left+size;
+		ret=1;
+	}
+	else
+	{
+#ifdef DEBUG
+printf("realloc_data_re : size > \n");
+#endif
+
+		int has_copy=CONTENT_SIZE_PER_BLOCK-last_left;
+		if(has_copy)
+		{
+
+			memcpy((void*)cur_b->content+last_left,buf,has_copy);
+			cur_b->size=last_left+has_copy;
+		}
+
+		ret=malloc_data_re(&first_data,&last_data,(void *)buf+has_copy,size-has_copy);
+		((Data_block *)mem[cur])->next_block=first_data;
+		p->last_data=last_data;
+	}
+
+	return ret;
+}
+
+/*
 //将buf开始的size字节内容转移到offset偏移的文件中
 int realloc_data(Node *p,const char *buf,int size,int offset)
 {
@@ -316,13 +474,15 @@ printf("realloc_data : memcpy 2\n");
 #ifdef DEBUG
 		printf("realloc_data : free\n\n");
 #endif
-	return malloc_data(p, write, offset+size);
 
+
+	int a=malloc_data(p, write, offset+size);
 	free(read);
 	free(write);
+	return a;
 }
 
-
+*/
 
 int pathType(const char *path)
 {
@@ -559,9 +719,9 @@ static int ramdisk_write(const char *path, const char *buf, size_t size,
 			#ifdef DEBUG
 			printf("\n\n realloc data in write\n");
 			printf("realloc_data node %ld",node);
+			//printf("write : buf:\n%s\n",buf);
 			#endif
-
-			int more=realloc_data(node,buf,size,offset);
+			int more=realloc_data_re(node,buf,size,offset);
 			if (more == 0)
 			{
 				return -ENOSPC;
