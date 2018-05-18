@@ -176,6 +176,8 @@ void free_node(Node *p)
 	}
 }
 
+
+int block_for_data=BLOCK_NUM_FOR_NODE+1;
 int malloc_data(Node *p, const char *buf, int size)
 {
 #ifdef DEBUG
@@ -194,8 +196,16 @@ int malloc_data(Node *p, const char *buf, int size)
 
 	for(; size>0; size=size - CONTENT_SIZE_PER_BLOCK, offset+=CONTENT_SIZE_PER_BLOCK)
 	{
-		while(mem[i]!=NULL)
-			i++;
+		for(;block_for_data<BLOCK_NUM,mem[block_for_data]!=NULL;block_for_data++);
+
+		if(mem[block_for_data]==NULL)
+			i=block_for_data;
+		else
+		{
+			while(mem[i]!=NULL)
+				i++;
+		}
+
 
 #ifdef DEBUG
 				printf("\n\nmalloc_data i: %d \n\n",i);

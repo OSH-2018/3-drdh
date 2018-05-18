@@ -421,6 +421,7 @@ for(i=0,cur=p->first_data;i<valid_num-1;i++)
 int ret;
 
 	if(size+offset< p->st.st_size)
+	//if(0)
 	{
 		Data_block *cur_b;
 		cur_b=(Data_block *)mem[cur];
@@ -428,8 +429,11 @@ int ret;
 		{
 
 		memcpy((void *)cur_b->content+last_left,buf,size);
-			cur_b->size=last_left+size;
+			//cur_b->size=last_left+size;
 			ret=1;
+			#ifdef DEBUG
+			printf("realloc_data_re : buf :%s content : %s size: %d\n",buf,cur_b->content,cur_b->size);
+			#endif
 		}
 		else
 		{
@@ -812,8 +816,8 @@ static int ramdisk_write(const char *path, const char *buf, size_t size,
 				//node->contents = more;
 				// Change pointer of file contents to a newly reallocated memory pointer
 				//memcpy(node->contents + offset, buf, size);
-
-				node->st.st_size = offset + size;
+				if(node->st.st_size<offset+size)
+					node->st.st_size = offset + size;
 				node->st.st_ctime = time(NULL);
 				node->st.st_mtime = time(NULL);
 			}
